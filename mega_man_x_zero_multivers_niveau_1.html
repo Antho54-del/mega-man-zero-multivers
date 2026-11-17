@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MEGA MAN X : ZERO MULTIVERS - Niveau 1</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: #070913;
+            color: #fff;
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 960px;
+            aspect-ratio: 16 / 9;
+            background: #0d1224;
+            border: 4px solid #2a3b68;
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.25), inset 0 0 20px rgba(0,0,0,0.8);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        /* Scanlines effet cathodique 16-bit */
+        .crt-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.22) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* Écrans superposés (Titre, Victoire, Game Over) */
+        .ui-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(7, 10, 22, 0.88);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            z-index: 10;
+            backdrop-filter: blur(2px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .title-logo {
+            font-size: clamp(18px, 3.5vw, 34px);
+            line-height: 1.4;
+            color: #ff2a4b;
+            text-shadow: 4px 4px 0 #4a0814, 0 0 20px rgba(255, 42, 75, 0.8);
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            font-size: clamp(10px, 1.8vw, 15px);
+            color: #00f0ff;
+            text-shadow: 2px 2px 0 #00424d;
+            margin-bottom: 24px;
+            letter-spacing: 1px;
+        }
+
+        .btn-snes {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(12px, 2vw, 16px);
+            padding: 16px 28px;
+            background: linear-gradient(180deg, #ff3b5c 0%, #b80d2a 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #590412, 0 0 20px rgba(255, 59, 92, 0.6);
+            transition: transform 0.08s, box-shadow 0.08s;
+            text-transform: uppercase;
+        }
+
+        .btn-snes:hover {
+            filter: brightness(1.15);
+        }
+
+        .btn-snes:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #590412;
+        }
+
+        .controls-box {
+            margin-top: 24px;
+            background: rgba(16, 24, 48, 0.9);
+            border: 2px solid #3a528f;
+            border-radius: 6px;
+            padding: 14px 18px;
+            font-size: clamp(8px, 1.3vw, 11px);
+            line-height: 1.9;
+            color: #cbd5e1;
+            max-width: 90%;
+        }
+
+        .controls-box span {
+            color: #ffd700;
+        }
+
+        /* Barre supérieure en jeu */
+        #top-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 960px;
+            padding: 10px 4px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .audio-btn {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            background: #1e293b;
+            color: #00f0ff;
+            border: 2px solid #00f0ff;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        .audio-btn:hover {
+            background: #00f0ff;
+            color: #070913;
+        }
+
+        /* Contrôles tactiles mobiles */
+        #touch-controls {
+            display: none;
+            width: 100%;
+            max-width: 960px;
+            justify-content: space-between;
+            padding: 12px 16px;
+            gap: 10px;
+        }
+
+        @media (pointer: coarse), (max-width: 768px) {
+            #touch-controls {
+                display: flex;
+            }
+        }
+
+        .touch-pad {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .t-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.85);
+            border: 3px solid #64748b;
+            color: #fff;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+
+        .t-btn:active {
+            background: #00f0ff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        .t-btn.saber { border-color: #22c55e; color: #4ade80; }
+        .t-btn.dash { border-color: #f59e0b; color: #fbbf24; }
+        .t-btn.jump { border-color: #38bdf8; color: #7dd3fc; }
+    </style>
+</head>
+<body>
+
+    <div id="top-controls">
+        <div>QG MULTIVERS // NIVEAU 01 : ARÈNE NÉON</div>
+        <button id="btn-music" class="audio-btn">SON: ON 🔊</button>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        <div class="crt-overlay"></div>
+
+        <!-- Écran Titre -->
+        <div id="screen-start" class="ui-screen">
+            <div class="title-logo">MEGA MAN X<br>ZERO MULTIVERS</div>
+            <div class="subtitle">NIVEAU 1 : DUEL CONTRE NIGHTMARE ZERO</div>
+            <button id="btn-start" class="btn-snes">LANCER LA MISSION</button>
+            <div class="controls-box">
+                <div><span>FLÈCHES / Q-D</span> : Déplacer &nbsp;|&nbsp; <span>ESPACE / Z / HAUT</span> : Saut & Saut Mural</div>
+                <div><span>SHIFT / K</span> : Dash Éclair &nbsp;|&nbsp; <span>J / ENTRÉE</span> : Combo Z-Saber (Maintenir = Vague Chargée)</div>
+            </div>
+        </div>
+
+        <!-- Écran Fin de Partie -->
+        <div id="screen-end" class="ui-screen hidden">
+            <div id="end-title" class="title-logo">MISSION ACCOMPLIE</div>
+            <div id="end-subtitle" class="subtitle">NIGHTMARE ZERO NEUTRALISÉ</div>
+            <button id="btn-restart" class="btn-snes">REJOUER LE NIVEAU</button>
+        </div>
+    </div>
+
+    <!-- Contrôles Tactiles -->
+    <div id="touch-controls">
+        <div class="touch-pad">
+            <button class="t-btn" id="t-left">◀</button>
+            <button class="t-btn" id="t-right">▶</button>
+        </div>
+        <div class="touch-pad">
+            <button class="t-btn dash" id="t-dash">DASH</button>
+            <button class="t-btn jump" id="t-jump">SAUT</button>
+            <button class="t-btn saber" id="t-attack">Z</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * ============================================================================
+ * SYSTÈME AUDIO RÉTRO 16-BIT (WEB AUDIO API - SANS FICHIERS EXTERNES)
+ * ============================================================================
+ */
+class SoundSystem {
+    constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.bgmInterval = null;
+        this.bgmStep = 0;
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    toggle() {
+        this.enabled = !this.enabled;
+        const btn = document.getElementById('btn-music');
+        btn.textContent = this.enabled ? 'SON: ON 🔊' : 'SON: OFF 🔇';
+        if (!this.enabled) {
+            this.stopBGM();
+        } else if (game && game.state === 'PLAYING') {
+            this.startBGM();
+        }
+    }
+
+    playTone(freq, type, duration, vol = 0.12, slideTo = null) {
+        if (!this.enabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        if (slideTo) {
+            osc.frequency.exponentialRampToValueAtTime(slideTo, this.ctx.currentTime + duration);
+        }
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+    }
+
+    playSaber(comboIndex = 1) {
+        const baseFreq = comboIndex === 3 ? 680 : (comboIndex === 2 ? 540 : 440);
+        this.playTone(baseFreq, 'sawtooth', 0.14, 0.14, 110);
+        this.playTone(baseFreq * 1.5, 'square', 0.08, 0.08, 180);
+    }
+
+    playChargeWave() {
+        this.playTone(880, 'sawtooth', 0.28, 0.16, 160);
+        this.playTone(1200, 'square', 0.22, 0.1, 300);
+    }
+
+    playDash() {
+        this.playTone(260, 'triangle', 0.18, 0.15, 720);
+    }
+
+    playJump(isWall = false) {
+        this.playTone(isWall ? 320 : 220, 'square', 0.15, 0.1, isWall ? 640 : 520);
+    }
+
+    playHit() {
+        this.playTone(150, 'sawtooth', 0.18, 0.2, 45);
+        this.playTone(95, 'square', 0.15, 0.18, 30);
+    }
+
+    playExplosion() {
+        for (let i = 0; i < 4; i++) {
+            setTimeout(() => {
+                this.playTone(140 - i * 20, 'sawtooth', 0.35, 0.22, 25);
+            }, i * 90);
+        }
+    }
+
+    startBGM() {
+        this.stopBGM();
+        if (!this.enabled) return;
+        // Ligne de basse style SNES Mega Man X (Boss Theme)
+        const bassNotes = [
+            110, 110, 220, 110, 130.81, 130.81, 146.83, 130.81,
+            110, 110, 220, 110, 164.81, 146.83, 130.81, 98.00
+        ];
+        const leadNotes = [
+            440, 0, 523.25, 493.88, 440, 0, 329.63, 392.00,
+            440, 523.25, 659.25, 587.33, 523.25, 493.88, 392.00, 329.63
+        ];
+
+        this.bgmStep = 0;
+        this.bgmInterval = setInterval(() => {
+            if (!this.enabled || !this.ctx || game.state !== 'PLAYING') return;
+            const bNote = bassNotes[this.bgmStep % bassNotes.length];
+            const lNote = leadNotes[this.bgmStep % leadNotes.length];
+            if (bNote > 0) this.playTone(bNote, 'triangle', 0.13, 0.06);
+            if (lNote > 0 && this.bgmStep % 2 === 0) {
+                this.playTone(lNote, 'square', 0.12, 0.035);
+            }
+            this.bgmStep++;
+        }, 145);
+    }
+
+    stopBGM() {
+        if (this.bgmInterval) {
+            clearInterval(this.bgmInterval);
+            this.bgmInterval = null;
+        }
+    }
+}
+
+const sfx = new SoundSystem();
+
+/**
+ * ============================================================================
+ * GESTION DES ENTRÉES CLAVIER & TACTILE
+ * ============================================================================
+ */
+const keys = {
+    left: false,
+    right: false,
+    jump: false,
+    jumpJustPressed: false,
+    dash: false,
+    dashJustPressed: false,
+    attack: false,
+    attackJustPressed: false,
+    attackJustReleased: false
+};
+
+window.addEventListener('keydown', (e) => {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+    }
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'KeyQ') keys.left = true;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyZ') {
+        if (!keys.jump) keys.jumpJustPressed = true;
+        keys.jump = true;
+    }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyK') {
+        if (!keys.dash) keys.dashJustPressed = true;
+        keys.dash = true;
+    }
+    if (e.code === 'KeyJ' || e.code === 'Enter') {
+        if (!keys.attack) keys.attackJustPressed = true;
+        keys.attack = true;
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'KeyQ') keys.left = false;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyZ') {
+        keys.jump = false;
+    }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyK') {
+        keys.dash = false;
+    }
+    if (e.code === 'KeyJ' || e.code === 'Enter') {
+        if (keys.attack) keys.attackJustReleased = true;
+        keys.attack = false;
+    }
+});
+
+// Liaisons Tactiles
+function bindTouch(id, keyName, pressFlag = null, releaseFlag = null) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!keys[keyName] && pressFlag) keys[pressFlag] = true;
+        keys[keyName] = true;
+    });
+    el.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        if (keys[keyName] && releaseFlag) keys[releaseFlag] = true;
+        keys[keyName] = false;
+    });
+}
+bindTouch('t-left', 'left');
+bindTouch('t-right', 'right');
+bindTouch('t-jump', 'jump', 'jumpJustPressed');
+bindTouch('t-dash', 'dash', 'dashJustPressed');
+bindTouch('t-attack', 'attack', 'attackJustPressed', 'attackJustReleased');
+
+/**
+ * ============================================================================
+ * PARTICULES, PROJECTILES & RENDU SPRITE 16-BIT PROGRAMMATIQUE
+ * ============================================================================
+ */
+class Particle {
+    constructor(x, y, vx, vy, color, size, life) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color;
+        this.size = size;
+        this.life = life;
+        this.maxLife = life;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life--;
+    }
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+        ctx.fillRect(Math.round(this.x), Math.round(this.y), this.size, this.size);
+        ctx.globalAlpha = 1;
+    }
+}
+
+class SaberWave {
+    constructor(x, y, dir, isEvil = false) {
+        this.x = x;
+        this.y = y;
+        this.dir = dir;
+        this.vx = dir * 11;
+        this.width = 28;
+        this.height = 54;
+        this.isEvil = isEvil;
+        this.active = true;
+        this.damage = isEvil ? 14 : 22;
+    }
+    update() {
+        this.x += this.vx;
+        if (this.x < -50 || this.x > 850) this.active = false;
+    }
+    draw(ctx) {
+        ctx.save();
+        const mainColor = this.isEvil ? '#ff1744' : '#00ff88';
+        const coreColor = '#ffffff';
+        ctx.fillStyle = mainColor;
+        ctx.shadowColor = mainColor;
+        ctx.shadowBlur = 12;
+
+        // Croissant d'énergie 16-bit
+        const ox = this.dir === 1 ? 0 : this.width;
+        ctx.beginPath();
+        ctx.arc(this.x + ox, this.y + this.height / 2, 26, -Math.PI / 2, Math.PI / 2, this.dir === -1);
+        ctx.fill();
+
+        ctx.fillStyle = coreColor;
+        ctx.beginPath();
+        ctx.arc(this.x + ox, this.y + this.height / 2, 14, -Math.PI / 2, Math.PI / 2, this.dir === -1);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+/**
+ * Dessine Zero ou Nightmare Zero en style pixel art 16-bit détaillé
+ */
+function drawZeroSprite(ctx, entity, isNightmare = false) {
+    ctx.save();
+    // Clignotement d'invulnérabilité
+    if (entity.invulnTimer > 0 && Math.floor(entity.invulnTimer / 3) % 2 === 0) {
+        ctx.globalAlpha = 0.45;
+    }
+
+    const cx = Math.round(entity.x + entity.width / 2);
+    const cy = Math.round(entity.y);
+    ctx.translate(cx, cy);
+    ctx.scale(entity.facing, 1);
+
+    // Palette de couleurs (Zero Classique vs Nightmare Zero)
+    const armorMain   = isNightmare ? '#2d1b4e' : '#e6192e';
+    const armorDark   = isNightmare ? '#170c2b' : '#990b1a';
+    const armorTrim   = isNightmare ? '#a855f7' : '#ffffff';
+    const hairColor   = isNightmare ? '#d8b4fe' : '#ffd700';
+    const hairShadow  = isNightmare ? '#7e22ce' : '#d97706';
+    const visorColor  = isNightmare ? '#ff1744' : '#00f0ff';
+    const saberBlade  = isNightmare ? '#ff1744' : '#00ff88';
+    const saberGlow   = isNightmare ? 'rgba(255, 23, 68, 0.7)' : 'rgba(0, 255, 136, 0.7)';
+
+    // Aura de charge si Zero charge son sabre
+    if (!isNightmare && entity.chargeTimer > 20) {
+        const pulse = Math.sin(Date.now() * 0.03) * 4;
+        ctx.strokeStyle = entity.chargeTimer >= 55 ? '#00f0ff' : '#ffd700';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-22 - pulse / 2, -4 - pulse / 2, 44 + pulse, 58 + pulse);
+    }
+
+    // Cheveux longs emblématiques (flottant derrière)
+    const hairWave = Math.sin(Date.now() * 0.015) * 3;
+    ctx.fillStyle = hairShadow;
+    ctx.fillRect(-26, 12 + hairWave, 18, 26);
+    ctx.fillStyle = hairColor;
+    ctx.fillRect(-24, 10 + hairWave, 16, 24);
+    ctx.fillRect(-30, 18 - hairWave, 12, 16);
+
+    // Jambes & Bottes
+    const legOffset = entity.isDashing ? 6 : (Math.abs(entity.vx) > 0.5 ? Math.sin(Date.now() * 0.025) * 5 : 0);
+    // Jambe arrière
+    ctx.fillStyle = armorDark;
+    ctx.fillRect(-10 - legOffset, 34, 9, 18);
+    ctx.fillStyle = armorTrim;
+    ctx.fillRect(-11 - legOffset, 44, 11, 8);
+    // Jambe avant
+    ctx.fillStyle = armorMain;
+    ctx.fillRect(2 + legOffset, 34, 10, 18);
+    ctx.fillStyle = armorTrim;
+    ctx.fillRect(1 + legOffset, 44, 12, 8);
+
+    // Torse & Plastron
+    ctx.fillStyle = armorMain;
+    ctx.fillRect(-11, 16, 22, 20);
+    // Détails jaunes/violets du torse
+    ctx.fillStyle = isNightmare ? '#c084fc' : '#facc15';
+    ctx.fillRect(-6, 19, 12, 8);
+    // Gemme centrale
+    ctx.fillStyle = visorColor;
+    ctx.fillRect(-2, 21, 5, 5);
+
+    // Épaulière emblématique (avec le Z)
+    ctx.fillStyle = armorMain;
+    ctx.fillRect(-15, 13, 13, 12);
+    ctx.fillStyle = armorTrim;
+    ctx.fillRect(-15, 13, 13, 3);
+
+    // Casque & Visage
+    ctx.fillStyle = armorMain;
+    ctx.fillRect(-10, 0, 20, 15);
+    // Crête blanche/violette du casque
+    ctx.fillStyle = armorTrim;
+    ctx.fillRect(-3, -3, 8, 9);
+    ctx.fillStyle = visorColor;
+    ctx.fillRect(-1, -1, 4, 4);
+    // Visage & Yeux perçants
+    ctx.fillStyle = '#fde68a';
+    ctx.fillRect(1, 5, 9, 9);
+    ctx.fillStyle = visorColor;
+    ctx.fillRect(5, 7, 4, 3);
+
+    // Bras & Z-Saber (Animation selon le combo d'attaque)
+    ctx.fillStyle = armorTrim;
+    if (entity.attackTimer > 0) {
+        // Bras tendu vers l'avant
+        ctx.fillRect(8, 18, 14, 7);
+        // Poignée du Z-Saber
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(20, 17, 6, 8);
+
+        // Lame énergétique du Z-Saber (Arc de coupe spectaculaire)
+        ctx.save();
+        ctx.shadowColor = saberGlow;
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = saberBlade;
+
+        if (entity.comboStep === 1) {
+            // Coupe descendante large
+            ctx.beginPath();
+            ctx.moveTo(24, 18);
+            ctx.lineTo(68, -8);
+            ctx.lineTo(74, 24);
+            ctx.lineTo(54, 48);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(24, 16, 44, 5);
+        } else if (entity.comboStep === 2) {
+            // Coupe horizontale rapide
+            ctx.fillRect(24, 12, 58, 14);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(24, 16, 54, 6);
+        } else {
+            // 3e coup : Estoc massif / Tourbillon
+            ctx.beginPath();
+            ctx.arc(32, 20, 44, -Math.PI * 0.65, Math.PI * 0.65);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(24, 14, 52, 10);
+        }
+        ctx.restore();
+    } else {
+        // Bras au repos prêt au combat
+        ctx.fillRect(6, 18, 8, 11);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(8, 27, 6, 4);
+    }
+
+    ctx.restore();
+}
+
+/**
+ * ============================================================================
+ * LOGIQUE PRINCIPALE DU JEU (NIVEAU 1 : ZERO VS NIGHTMARE ZERO)
+ * ============================================================================
+ */
+class ZeroMultiversGame {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.width = 800;
+        this.height = 450;
+        this.floorY = 385;
+        this.wallLeft = 36;
+        this.wallRight = 764;
+
+        this.state = 'MENU'; // MENU, PLAYING, VICTORY, GAMEOVER
+        this.shakeTimer = 0;
+        this.shakeIntensity = 0;
+        this.particles = [];
+        this.waves = [];
+        this.afterImages = [];
+
+        this.resetEntities();
+    }
+
+    resetEntities() {
+        this.particles = [];
+        this.waves = [];
+        this.afterImages = [];
+
+        // Joueur : ZERO
+        this.player = {
+            x: 140,
+            y: this.floorY - 52,
+            width: 30,
+            height: 52,
+            vx: 0,
+            vy: 0,
+            facing: 1,
+            hp: 100,
+            maxHp: 100,
+            grounded: false,
+            onWall: 0, // -1 gauche, 1 droite
+            isDashing: false,
+            dashTimer: 0,
+            dashCooldown: 0,
+            attackTimer: 0,
+            comboStep: 0,
+            comboWindow: 0,
+            chargeTimer: 0,
+            invulnTimer: 0
+        };
+
+        // Boss : NIGHTMARE ZERO
+        this.boss = {
+            x: 620,
+            y: this.floorY - 52,
+            width: 30,
+            height: 52,
+            vx: 0,
+            vy: 0,
+            facing: -1,
+            hp: 160,
+            maxHp: 160,
+            grounded: false,
+            isDashing: false,
+            attackTimer: 0,
+            comboStep: 1,
+            invulnTimer: 0,
+            aiTimer: 50,
+            aiState: 'IDLE' // IDLE, DASH_SLASH, JUMP_WAVE, COMBO_RUSH
+        };
+    }
+
+    start() {
+        sfx.init();
+        this.resetEntities();
+        this.state = 'PLAYING';
+        document.getElementById('screen-start').classList.add('hidden');
+        document.getElementById('screen-end').classList.add('hidden');
+        sfx.startBGM();
+    }
+
+    triggerShake(duration, intensity) {
+        this.shakeTimer = duration;
+        this.shakeIntensity = intensity;
+    }
+
+    spawnParticles(x, y, color, count = 12, speed = 5) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = (Math.random() * 0.7 + 0.3) * speed;
+            this.particles.push(new Particle(
+                x, y,
+                Math.cos(angle) * spd,
+                Math.sin(angle) * spd,
+                color,
+                Math.floor(Math.random() * 4) + 3,
+                Math.floor(Math.random() * 18) + 12
+            ));
+        }
+    }
+
+    updatePlayer() {
+        const p = this.player;
+        if (p.invulnTimer > 0) p.invulnTimer--;
+        if (p.dashCooldown > 0) p.dashCooldown--;
+        if (p.comboWindow > 0) p.comboWindow--;
+        else if (p.attackTimer <= 0) p.comboStep = 0;
+
+        // Charge du Z-Saber
+        if (keys.attack) {
+            p.chargeTimer++;
+            if (p.chargeTimer === 25 || p.chargeTimer === 55) {
+                sfx.playTone(p.chargeTimer === 55 ? 900 : 600, 'sine', 0.08, 0.08);
+            }
+        }
+
+        // Déclenchement d'une attaque (Combo 3 coups)
+        if (keys.attackJustPressed && p.attackTimer <= 4) {
+            p.attackTimer = 14;
+            p.comboStep = (p.comboStep % 3) + 1;
+            p.comboWindow = 28;
+            sfx.playSaber(p.comboStep);
+            this.checkPlayerSaberHit();
+        }
+
+        // Relâchement de vague chargée
+        if (keys.attackJustReleased) {
+            if (p.chargeTimer >= 45) {
+                p.attackTimer = 16;
+                p.comboStep = 2;
+                sfx.playChargeWave();
+                this.waves.push(new SaberWave(
+                    p.facing === 1 ? p.x + p.width : p.x - 28,
+                    p.y - 2,
+                    p.facing,
+                    false
+                ));
+                this.triggerShake(6, 3);
+            }
+            p.chargeTimer = 0;
+        }
+
+        if (p.attackTimer > 0) {
+            p.attackTimer--;
+        }
+
+        // Déclenchement du Dash
+        if (keys.dashJustPressed && !p.isDashing && p.dashCooldown <= 0) {
+            p.isDashing = true;
+            p.dashTimer = 14;
+            p.dashCooldown = 22;
+            sfx.playDash();
+            this.spawnParticles(p.x + p.width / 2, p.y + p.height - 6, '#00f0ff', 8, 3);
+        }
+
+        // Mouvement Horizontal
+        const moveSpeed = p.isDashing ? 9.5 : 4.4;
+        if (p.isDashing) {
+            p.vx = p.facing * moveSpeed;
+            p.dashTimer--;
+            if (p.dashTimer % 2 === 0) {
+                this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, alpha: 0.5, isNightmare: false });
+            }
+            if (p.dashTimer <= 0) p.isDashing = false;
+        } else {
+            if (keys.left) {
+                p.vx = -moveSpeed;
+                if (p.attackTimer <= 0) p.facing = -1;
+            } else if (keys.right) {
+                p.vx = moveSpeed;
+                if (p.attackTimer <= 0) p.facing = 1;
+            } else {
+                p.vx *= 0.72;
+                if (Math.abs(p.vx) < 0.2) p.vx = 0;
+            }
+        }
+
+        // Saut & Saut Mural (Wall Jump)
+        if (keys.jumpJustPressed) {
+            if (p.grounded) {
+                p.vy = -11.8;
+                p.grounded = false;
+                sfx.playJump(false);
+            } else if (p.onWall !== 0) {
+                // Wall Jump propulsé à l'opposé du mur
+                p.vy = -11.2;
+                p.vx = -p.onWall * 7.5;
+                p.facing = -p.onWall;
+                p.isDashing = false;
+                sfx.playJump(true);
+                this.spawnParticles(p.onWall === -1 ? this.wallLeft : this.wallRight, p.y + 25, '#ffffff', 8, 4);
+            }
+        }
+
+        // Gravité & Glissade sur le mur
+        let gravity = 0.58;
+        if (!p.grounded && p.onWall !== 0 && p.vy > 0) {
+            gravity = 0.22; // Descente ralentie le long du mur
+            if (Math.random() < 0.3) {
+                this.spawnParticles(p.onWall === -1 ? this.wallLeft : this.wallRight, p.y + 40, '#94a3b8', 1, 1.5);
+            }
+        }
+        p.vy += gravity;
+        if (p.vy > 13) p.vy = 13;
+
+        // Application des vitesses & Collisions arène
+        p.x += p.vx;
+        p.y += p.vy;
+
+        p.onWall = 0;
+        if (p.x <= this.wallLeft) {
+            p.x = this.wallLeft;
+            if (!p.grounded && keys.left) p.onWall = -1;
+        }
+        if (p.x + p.width >= this.wallRight) {
+            p.x = this.wallRight - p.width;
+            if (!p.grounded && keys.right) p.onWall = 1;
+        }
+
+        if (p.y + p.height >= this.floorY) {
+            p.y = this.floorY - p.height;
+            p.vy = 0;
+            p.grounded = true;
+        } else {
+            p.grounded = false;
+        }
+    }
+
+    checkPlayerSaberHit() {
+        const p = this.player;
+        const b = this.boss;
+        const reach = 64;
+        const hitX = p.facing === 1 ? p.x + p.width : p.x - reach;
+
+        if (
+            hitX < b.x + b.width &&
+            hitX + reach > b.x &&
+            p.y - 10 < b.y + b.height &&
+            p.y + p.height + 10 > b.y
+        ) {
+            const dmg = p.comboStep === 3 ? 16 : (p.comboStep === 2 ? 11 : 8);
+            this.damageBoss(dmg, p.facing);
+        }
+    }
+
+    damageBoss(amount, dir) {
+        const b = this.boss;
+        if (b.invulnTimer > 0) return;
+        b.hp = Math.max(0, b.hp - amount);
+        b.invulnTimer = 10;
+        b.vx = dir * 4.5;
+        sfx.playHit();
+        this.triggerShake(8, 5);
+        this.spawnParticles(b.x + b.width / 2, b.y + 25, '#00ff88', 16, 6);
+        this.spawnParticles(b.x + b.width / 2, b.y + 25, '#ffffff', 8, 4);
+
+        if (b.hp <= 0) {
+            this.endGame(true);
+        }
+    }
+
+    damagePlayer(amount, dir) {
+        const p = this.player;
+        if (p.invulnTimer > 0 || this.state !== 'PLAYING') return;
+        p.hp = Math.max(0, p.hp - amount);
+        p.invulnTimer = 42;
+        p.isDashing = false;
+        p.vx = dir * 6;
+        p.vy = -5;
+        sfx.playHit();
+        this.triggerShake(12, 7);
+        this.spawnParticles(p.x + p.width / 2, p.y + 25, '#ff1744', 18, 6);
+
+        if (p.hp <= 0) {
+            this.endGame(false);
+        }
+    }
+
+    updateBoss() {
+        const b = this.boss;
+        const p = this.player;
+        if (b.invulnTimer > 0) b.invulnTimer--;
+        if (b.attackTimer > 0) b.attackTimer--;
+
+        const dist = (p.x + p.width / 2) - (b.x + b.width / 2);
+        const absDist = Math.abs(dist);
+
+        b.aiTimer--;
+        if (b.aiTimer <= 0) {
+            b.facing = dist >= 0 ? 1 : -1;
+            const roll = Math.random();
+            if (absDist < 95) {
+                b.aiState = 'COMBO_RUSH';
+                b.aiTimer = 34;
+                b.attackTimer = 16;
+                b.comboStep = Math.floor(Math.random() * 3) + 1;
+                sfx.playSaber(b.comboStep);
+            } else if (roll < 0.45) {
+                b.aiState = 'DASH_SLASH';
+                b.aiTimer = 32;
+                b.isDashing = true;
+                sfx.playDash();
+            } else if (roll < 0.8) {
+                b.aiState = 'JUMP_WAVE';
+                b.aiTimer = 42;
+                if (b.grounded) b.vy = -11;
+                setTimeout(() => {
+                    if (this.state === 'PLAYING' && b.hp > 0) {
+                        b.attackTimer = 14;
+                        b.comboStep = 2;
+                        sfx.playChargeWave();
+                        this.waves.push(new SaberWave(
+                            b.facing === 1 ? b.x + b.width : b.x - 28,
+                            b.y,
+                            b.facing,
+                            true
+                        ));
+                    }
+                }, 260);
+            } else {
+                b.aiState = 'IDLE';
+                b.aiTimer = 25;
+            }
+        }
+
+        // Exécution comportement IA
+        if (b.aiState === 'DASH_SLASH') {
+            b.vx = b.facing * 8.5;
+            if (b.aiTimer % 3 === 0) {
+                this.afterImages.push({ x: b.x, y: b.y, facing: b.facing, alpha: 0.5, isNightmare: true });
+            }
+            if (absDist < 65 && b.attackTimer <= 0) {
+                b.attackTimer = 15;
+                b.comboStep = 1;
+                sfx.playSaber(3);
+                b.isDashing = false;
+                b.aiState = 'IDLE';
+            }
+        } else if (b.aiState === 'COMBO_RUSH') {
+            b.vx = b.facing * 2.5;
+        } else {
+            b.vx *= 0.8;
+            b.isDashing = false;
+        }
+
+        // Gravité Boss
+        b.vy += 0.58;
+        b.x += b.vx;
+        b.y += b.vy;
+
+        if (b.x < this.wallLeft) b.x = this.wallLeft;
+        if (b.x + b.width > this.wallRight) b.x = this.wallRight - b.width;
+        if (b.y + b.height >= this.floorY) {
+            b.y = this.floorY - b.height;
+            b.vy = 0;
+            b.grounded = true;
+        } else {
+            b.grounded = false;
+        }
+
+        // Hitbox Sabre du Boss sur Zero
+        if (b.attackTimer > 4) {
+            const reach = 60;
+            const hitX = b.facing === 1 ? b.x + b.width : b.x - reach;
+            if (
+                hitX < p.x + p.width &&
+                hitX + reach > p.x &&
+                b.y - 8 < p.y + p.height &&
+                b.y + b.height + 8 > p.y
+            ) {
+                this.damagePlayer(12, b.facing);
+            }
+        }
+
+        // Collision corps à corps directe
+        if (
+            p.x < b.x + b.width - 4 &&
+            p.x + p.width > b.x + 4 &&
+            p.y < b.y + b.height - 4 &&
+            p.y + p.height > b.y + 4
+        ) {
+            this.damagePlayer(8, dist >= 0 ? -1 : 1);
+        }
+    }
+
+    updateProjectilesAndFX() {
+        // Vagues d'énergie
+        for (let i = this.waves.length - 1; i >= 0; i--) {
+            const w = this.waves[i];
+            w.update();
+            if (!w.active) {
+                this.waves.splice(i, 1);
+                continue;
+            }
+            const target = w.isEvil ? this.player : this.boss;
+            if (
+                w.x < target.x + target.width &&
+                w.x + w.width > target.x &&
+                w.y < target.y + target.height &&
+                w.y + w.height > target.y
+            ) {
+                if (w.isEvil) {
+                    this.damagePlayer(w.damage, w.dir);
+                } else {
+                    this.damageBoss(w.damage, w.dir);
+                }
+                w.active = false;
+            }
+        }
+
+        // Particules
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            this.particles[i].update();
+            if (this.particles[i].life <= 0) this.particles.splice(i, 1);
+        }
+
+        // Rémanences de Dash (After-images)
+        for (let i = this.afterImages.length - 1; i >= 0; i--) {
+            this.afterImages[i].alpha -= 0.06;
+            if (this.afterImages[i].alpha <= 0) this.afterImages.splice(i, 1);
+        }
+
+        if (this.shakeTimer > 0) this.shakeTimer--;
+    }
+
+    endGame(victory) {
+        this.state = victory ? 'VICTORY' : 'GAMEOVER';
+        sfx.stopBGM();
+        sfx.playExplosion();
+        this.triggerShake(25, 10);
+
+        const target = victory ? this.boss : this.player;
+        this.spawnParticles(target.x + 15, target.y + 25, victory ? '#a855f7' : '#ff2a4b', 45, 9);
+        this.spawnParticles(target.x + 15, target.y + 25, '#ffffff', 25, 7);
+
+        setTimeout(() => {
+            const screen = document.getElementById('screen-end');
+            const title = document.getElementById('end-title');
+            const sub = document.getElementById('end-subtitle');
+            screen.classList.remove('hidden');
+
+            if (victory) {
+                title.textContent = 'VICTOIRE !';
+                title.style.color = '#00ff88';
+                sub.textContent = 'NIGHTMARE ZERO ÉLIMINÉ - SECTEUR SÉCURISÉ';
+            } else {
+                title.textContent = 'GAME OVER';
+                title.style.color = '#ff2a4b';
+                sub.textContent = 'SYSTÈME CRITIQUE - ZERO HORS DE COMBAT';
+            }
+        }, 900);
+    }
+
+    drawArena() {
+        const ctx = this.ctx;
+
+        // Fond cybernétique profond
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, this.height);
+        bgGrad.addColorStop(0, '#070b19');
+        bgGrad.addColorStop(0.65, '#111b3a');
+        bgGrad.addColorStop(1, '#1e1b4b');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // Grille perspective néon en arrière-plan
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.12)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= this.width; x += 40) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.floorY);
+            ctx.stroke();
+        }
+        for (let y = 40; y < this.floorY; y += 40) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(this.width, y);
+            ctx.stroke();
+        }
+
+        // Réacteur / Noyau Multivers central en fond
+        ctx.save();
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.25)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(400, 210, 110 + Math.sin(Date.now() * 0.004) * 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+        ctx.beginPath();
+        ctx.arc(400, 210, 75, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        // Murs latéraux métalliques (pour le Wall Jump)
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, this.wallLeft, this.height);
+        ctx.fillRect(this.wallRight, 0, this.width - this.wallRight, this.height);
+
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillRect(this.wallLeft - 3, 0, 3, this.floorY);
+        ctx.fillStyle = '#a855f7';
+        ctx.fillRect(this.wallRight, 0, 3, this.floorY);
+
+        // Sol cybernétique 16-bit
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, this.floorY, this.width, this.height - this.floorY);
+
+        // Ligne néon supérieure du sol
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillRect(0, this.floorY, this.width, 4);
+
+        // Dalles métalliques au sol
+        ctx.fillStyle = '#334155';
+        for (let x = 20; x < this.width; x += 64) {
+            ctx.fillRect(x, this.floorY + 12, 48, 12);
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(x + 6, this.floorY + 16, 12, 4);
+            ctx.fillStyle = '#334155';
+        }
+    }
+
+    drawHUD() {
+        const ctx = this.ctx;
+
+        // Barre de vie style Mega Man X (Verticale avec segments)
+        const drawBar = (x, y, hp, maxHp, fillColor, borderColor, label) => {
+            const barW = 18;
+            const barH = 130;
+
+            // Cadre sombre
+            ctx.fillStyle = 'rgba(7, 10, 22, 0.85)';
+            ctx.fillRect(x - 4, y - 22, barW + 8, barH + 28);
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 4, y - 22, barW + 8, barH + 28);
+
+            // Nom du combattant
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, x + barW / 2, y - 8);
+
+            // Remplissage segmenté
+            const ratio = Math.max(0, hp / maxHp);
+            const fillH = Math.round(barH * ratio);
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(x, y + (barH - fillH), barW, fillH);
+
+            // Lignes de segments 16-bit
+            ctx.fillStyle = '#070a16';
+            for (let sy = y; sy < y + barH; sy += 6) {
+                ctx.fillRect(x, sy, barW, 2);
+            }
+        };
+
+        // HUD Gauche : ZERO
+        drawBar(54, 42, this.player.hp, this.player.maxHp, '#22c55e', '#ff2a4b', 'ZERO');
+
+        // HUD Droit : NIGHTMARE ZERO
+        drawBar(this.width - 72, 42, this.boss.hp, this.boss.maxHp, '#c084fc', '#a855f7', 'N-ZERO');
+
+        // Jauge de Charge Z-Saber sous la barre de Zero
+        if (this.player.chargeTimer > 10) {
+            const chargeRatio = Math.min(1, this.player.chargeTimer / 45);
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(48, 184, 30, 6);
+            ctx.fillStyle = chargeRatio >= 1 ? '#00f0ff' : '#facc15';
+            ctx.fillRect(48, 184, Math.round(30 * chargeRatio), 6);
+        }
+    }
+
+    loop() {
+        const ctx = this.ctx;
+        ctx.save();
+
+        // Tremblement d'écran sur impact lourd
+        if (this.shakeTimer > 0) {
+            const dx = (Math.random() - 0.5) * this.shakeIntensity * 2;
+            const dy = (Math.random() - 0.5) * this.shakeIntensity * 2;
+            ctx.translate(dx, dy);
+        }
+
+        if (this.state === 'PLAYING') {
+            this.updatePlayer();
+            this.updateBoss();
+        }
+        this.updateProjectilesAndFX();
+
+        // Rendu
+        this.drawArena();
+
+        // After-images
+        this.afterImages.forEach(img => {
+            ctx.save();
+            ctx.globalAlpha = img.alpha * 0.45;
+            drawZeroSprite(ctx, { ...img, width: 30, height: 52, vx: 0, attackTimer: 0, invulnTimer: 0, chargeTimer: 0 }, img.isNightmare);
+            ctx.restore();
+        });
+
+        if (this.boss.hp > 0 || this.state === 'MENU') {
+            drawZeroSprite(ctx, this.boss, true);
+        }
+        if (this.player.hp > 0 || this.state === 'MENU') {
+            drawZeroSprite(ctx, this.player, false);
+        }
+
+        this.waves.forEach(w => w.draw(ctx));
+        this.particles.forEach(p => p.draw(ctx));
+
+        if (this.state !== 'MENU') {
+            this.drawHUD();
+        }
+
+        ctx.restore();
+
+        // Réinitialisation des impulsions d'une seule frame
+        keys.jumpJustPressed = false;
+        keys.dashJustPressed = false;
+        keys.attackJustPressed = false;
+        keys.attackJustReleased = false;
+
+        requestAnimationFrame(() => this.loop());
+    }
+}
+
+// Initialisation au chargement de la fenêtre
+let game;
+window.onload = () => {
+    game = new ZeroMultiversGame();
+    document.getElementById('btn-start').addEventListener('click', () => game.start());
+    document.getElementById('btn-restart').addEventListener('click', () => game.start());
+    document.getElementById('btn-music').addEventListener('click', () => sfx.toggle());
+    game.loop();
+};
+</script>
+</body>
+</html>
